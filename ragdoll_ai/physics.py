@@ -1,17 +1,26 @@
 import math
-from typing import Dict, List
+from typing import Dict
 import numpy as np
-from .body import Body, PointMass, StickConstraint, AngleConstraint
-from .constants import GRAVITY, AIR_DAMPING, FLOOR_FRICTION, FLOOR_Y, SOLVER_ITERATIONS
+from .body import Body, PointMass
+from .constants import GRAVITY, AIR_DAMPING, FLOOR_FRICTION, FLOOR_Y, SOLVER_ITERATIONS, RENDER_WIDTH
 
 
 class Physics:
     def __init__(self, body: Body):
         self.body = body
+        self.treadmill_offset: float = 0.0
         self._apply_initial_tip()
 
     def _apply_initial_tip(self) -> None:
-        pass
+        tip = np.array([2.8, 0.0], dtype=np.float64)
+        for name in ["head", "neck", "spine_upper", "spine_lower", "pelvis"]:
+            self.body.points[name].prev_pos -= tip
+        self.body.points["r_shoulder"].prev_pos[0] -= 1.4
+        self.body.points["r_hand"].prev_pos[0] -= 2.0
+        self.body.points["r_hip"].prev_pos[0] -= 1.0
+
+    def _get_com(self) -> float:
+        return sum(p.pos[0] for p in self.body.points.values()) / len(self.body.points)
 
     def step(self, dt: float, actions: np.ndarray | None = None) -> None:
         for p in self.body.points.values():
@@ -22,6 +31,20 @@ class Physics:
             self._solve_angles()
             for p in self.body.points.values():
                 self._solve_bounds(p)
+
+        self._update_treadmill()
+
+    def _update_treadmill(self) -> None:
+        com = self._get_com()
+        target_x = RENDER_WIDTH * 0.42
+        drift = com - target_x
+
+        if abs(drift) > 30:
+            shift = drift * 0.15
+            self.treadmill_offset -= shift
+            for p in self.body.points.values():
+                p.pos[0] -= shift
+                p.prev_pos[0] -= shift
 
     def _verlet(self, p: PointMass, dt: float) -> None:
         if p.pinned:
@@ -40,8 +63,8 @@ class Physics:
             p.prev_pos[0] = p.pos[0] - vx * FLOOR_FRICTION
         if p.pos[0] < p.radius:
             p.pos[0] = p.radius
-        elif p.pos[0] > 1280 - p.radius:
-            p.pos[0] = 1280 - p.radius
+        elif p.pos[0] > RENDER_WIDTH - p.radius:
+            p.pos[0] = RENDER_WIDTH - p.radius
 
     def _solve_sticks(self) -> None:
         for s in self.body.sticks:
@@ -111,4 +134,5 @@ class Physics:
         self.body.sticks.clear()
         self.body.angles.clear()
         self.body._build_human()
+        self.treadmill_offset = 0.0
         self._apply_initial_tip()
