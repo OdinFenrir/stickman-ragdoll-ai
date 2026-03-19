@@ -13,10 +13,10 @@ class Physics:
     def _apply_initial_tip(self) -> None:
         tip = np.array([2.8, 0.0], dtype=np.float64)
         for name in ["head", "neck", "spine_upper", "spine_lower", "pelvis"]:
-            self.body.points[name].prev_pos -= tip
-        self.body.points["r_shoulder"].prev_pos[0] -= 1.4
-        self.body.points["r_hand"].prev_pos[0] -= 2.0
-        self.body.points["r_hip"].prev_pos[0] -= 1.0
+            self.body.points[name].prev_pos += tip
+        self.body.points["r_shoulder"].prev_pos[0] += 1.4
+        self.body.points["r_hand"].prev_pos[0] += 2.0
+        self.body.points["r_hip"].prev_pos[0] += 1.0
 
     def step(self, dt: float, actions: np.ndarray | None = None) -> None:
         for p in self.body.points.values():
