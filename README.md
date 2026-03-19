@@ -1,49 +1,60 @@
 # Stickman Ragdoll AI
 
-Verlet-integration ragdoll physics engine built for AI training. A stickman falls, tumbles, and collapses under gravity — joint states are exposed as a normalized input vector for reinforcement learning.
+Verlet-integration ragdoll physics engine built for reinforcement learning training.
 
-## Quick Start
+## Setup
 
 ```bash
 py -3.12 -m venv .venv
 .venv\Scripts\activate.bat
-pip install pygame
+pip install -r requirements.txt
 
-python main.py
+python main.py         # sandbox / visual demo
+python debug_viewer.py # physics microscope
 ```
 
-Or use the included launcher:
+## Scripts
 
 ```bash
-run_game.bat
+python scripts/check_env.py    # Gymnasium interface validation
+python scripts/smoke_test.py   # 200-step smoke test
+pytest tests/                  # unit tests
 ```
 
-## Project Structure
+## Training
+
+```bash
+python train.py   # trains SAC, saves to models/sac_final
+python eval.py    # evaluate trained model
+```
+
+## Architecture
 
 ```
-.
-├── src/
-│   ├── ragdoll.py      # Physics engine, constraints, rendering
-│   └── __init__.py     # Public API
-├── main.py             # Game entry point
-├── requirements.txt
-└── run_game.bat
+ragdoll_ai/
+├── body.py         # ragdoll definition (points, sticks, angles)
+├── physics.py      # verlet integration + constraint solver
+├── env.py          # Gymnasium environment
+├── observations.py # state vector (joint pos/vel)
+├── actions.py     # torque application from policy output
+├── rewards.py     # reward signal
+├── termination.py # episode end conditions
+├── renderer.py    # pygame drawing
+└── constants.py  # all fixed values
 ```
 
 ## Physics
 
-- **Integration**: Verlet (position-based, stable)
-- **Constraints**: Distance sticks + angle limits, solved iteratively
-- **Solver**: 18 iterations/frame for stable joint enforcement
-- **Damping**: 0.999 air resistance
-- **Floor friction**: 0.82 coefficient
+- Verlet integration (position-based, stable at 60 fps)
+- 22 point masses with distance sticks + angle constraints
+- 18 solver iterations/frame
+- Floor friction (0.82), air damping (0.999)
+- Joint angle limits enforced per-limb
 
-## AI Integration
+## AI Interface
 
-`Ragdoll.get_joint_input_vector()` exposes per-joint state:
+Observations: `(22 joints × 4) = 88 floats` — normalized x, y, vx, vy per joint
 
-```
-[px, py, vx, vy] * num_joints
-```
+Actions: `(22 joints) = 22 floats` — bounded torques scaled to [-1, 1]
 
-All values are normalized. Feed into a neural network to learn motor control from ragdoll physics.
+Algorithm: SAC with Stable-Baselines3
